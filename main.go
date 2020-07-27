@@ -23,7 +23,6 @@ type CallDetails struct {
 		URI     string `json:"uri"`
 		From    string `json:"from"`
 		Headers struct {
-			
 		} `json:"headers"`
 		Auth struct {
 			Username string `json:"username"`
@@ -34,23 +33,32 @@ type CallDetails struct {
 }
 
 type Response struct {
+	StatusCode int `json:"statusCode"`
+	Body       struct {
+		ID           string `json:"id"`
+		ConnectionID string `json:"connectionId"`
+		StreamID     string `json:"streamId"`
+	} `json:"body"`
+}
+
+type Body struct {
 	ID           string `json:"id"`
 	ConnectionID string `json:"connectionId"`
 	StreamID     string `json:"streamId"`
 }
 
-func HandleRequest(ctx context.Context, call CallDetails) (string, error) {
-        callJSON, err := json.Marshal(call)
-        token, _ := creatToken()
+func HandleRequest(ctx context.Context, call CallDetails) (Response, error) {
+	callJSON, err := json.Marshal(call)
+	token, _ := creatToken()
 
 	if err != nil {
 		log.Fatal(err)
 	}
-        url := "https://api.opentok.com/v2/project/" + os.Getenv("API_KEY") + "/dial"
+	url := "https://api.opentok.com/v2/project/" + os.Getenv("API_KEY") + "/dial"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(callJSON))
 	req.Header.Set("Content-Type", "application/json")
-        req.Header.Set("X-OPENTOK-AUTH", token)
-        if err != nil {
+	req.Header.Set("X-OPENTOK-AUTH", token)
+	if err != nil {
 		log.Fatal(err)
 	}
 	client := &http.Client{}
@@ -59,8 +67,18 @@ func HandleRequest(ctx context.Context, call CallDetails) (string, error) {
 		log.Fatal(err)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
+	var callResp Body
+	if err := json.Unmarshal(body, &callResp); err != nil {
+		log.Fatal(err)
+	}
+
+	respBody := Response{
+		StatusCode: 200,
+		Body:       callResp,
+	}
+
 	defer resp.Body.Close()
-	return string(body), err
+	return respBody, err
 }
 
 func creatToken() (string, error) {
