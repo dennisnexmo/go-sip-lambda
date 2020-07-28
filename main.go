@@ -13,6 +13,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
 
@@ -47,10 +48,10 @@ type Body struct {
 	StreamID     string `json:"streamId"`
 }
 
-func HandleRequest(ctx context.Context, call CallDetails) (Response, error) {
+func HandleRequest(ctx context.Context, call CallDetails) (events.APIGatewayProxyResponse, error) {
 	callJSON, err := json.Marshal(call)
 	token, _ := creatToken()
-
+	log.Println("Recived request to make a call to: " + call.Sip.URI)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,18 +68,14 @@ func HandleRequest(ctx context.Context, call CallDetails) (Response, error) {
 		log.Fatal(err)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
-	var callResp Body
-	if err := json.Unmarshal(body, &callResp); err != nil {
-		log.Fatal(err)
-	}
-
-	respBody := Response{
-		StatusCode: 200,
-		Body:       callResp,
-	}
-
 	defer resp.Body.Close()
-	return respBody, err
+	return events.APIGatewayProxyResponse{
+		StatusCode: 200,
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Body: string(body),
+	}, nil
 }
 
 func creatToken() (string, error) {
@@ -95,6 +92,7 @@ func creatToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	log.Println("Token used: " + token)
 	return token, nil
 }
 
